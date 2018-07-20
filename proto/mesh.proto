@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package proto;
+
+service ServiceHub {
+	rpc Lookup(LockupRequest) returns (LookupResponse) {}
+	rpc Register(RegisterRequest) returns(RegisterResponse){}
+}
+
+message LockupRequest {
+	string name = 1;
+}
+
+message LookupResponse  {
+	repeated string addrs = 1;
+}
+
+message RegisterRequest {
+	string name = 1;
+}
+
+message RegisterResponse {
+}
