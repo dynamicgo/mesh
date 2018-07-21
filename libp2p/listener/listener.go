@@ -12,12 +12,13 @@ import (
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	protocol "github.com/libp2p/go-libp2p-protocol"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 type libp2pListener struct {
 	sync.Mutex
 	slf4go.Logger
-	addr     string
+	addr     net.Addr
 	conn     chan net.Conn
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -37,6 +38,12 @@ func Listen(ctx context.Context, host host.Host, protocol protocol.ID) net.Liste
 		protocol: protocol,
 		host:     host,
 	}
+
+	addrs := host.Addrs()
+
+	addr, _ := manet.ToNetAddr(addrs[0])
+
+	listener.addr = addr
 
 	host.SetStreamHandler(listener.protocol, listener.streamHandler)
 
@@ -97,7 +104,5 @@ func (listener *libp2pListener) Close() error {
 }
 
 func (listener *libp2pListener) Addr() net.Addr {
-	return &netwrapper.NetAddr{
-		Addr: listener.addr,
-	}
+	return listener.addr
 }

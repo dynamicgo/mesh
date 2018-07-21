@@ -62,7 +62,8 @@ func (service *serviceImpl) Run(main mesh.ServiceMain, options ...mesh.ServiceOp
 	} else {
 		agent.DebugF("[%s] register service to service hub", agent.network.ID())
 		_, err := agent.serviceHub.Register(agent.ctx, &proto.RegisterRequest{
-			Name: service.serviceName,
+			Name:  service.serviceName,
+			Addrs: agent.network.Addrs(),
 		})
 
 		if err != nil {

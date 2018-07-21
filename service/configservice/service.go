@@ -8,7 +8,11 @@ import (
 
 // Main servicehub main
 func Main(server *grpc.Server, config config.Config) error {
-	service := new(config)
+	service, err := new(config)
+
+	if err != nil {
+		return err
+	}
 
 	configgrpc.RegisterSourceServer(server, service)
 

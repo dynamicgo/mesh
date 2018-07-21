@@ -17,6 +17,7 @@ message LookupResponse  {
 
 message RegisterRequest {
 	string name = 1;
+	repeated string addrs = 2;
 }
 
 message RegisterResponse {

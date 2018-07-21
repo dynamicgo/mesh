@@ -21,6 +21,7 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	multiaddr "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 // Builtin protocols
@@ -165,6 +166,23 @@ func (node *meshNode) loadBootstrapPeers(config config.Config) (err error) {
 		})
 	}
 
+	return
+}
+
+func (node *meshNode) Addrs() (addrs []string) {
+	for _, a := range node.host.Addrs() {
+
+		if manet.IsIPLoopback(a) {
+			continue
+		}
+
+		peerAddr := &addr.PeerAddr{
+			ID:   node.host.ID(),
+			Addr: a,
+		}
+
+		addrs = append(addrs, peerAddr.String())
+	}
 	return
 }
 

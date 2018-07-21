@@ -40,6 +40,7 @@ type Network interface {
 	Listen(laddr string) (net.Listener, error)
 	Dial(raddr string, serviceName string, timeout time.Duration) (net.Conn, error)
 	ID() string
+	Addrs() []string
 }
 
 // NetworkPlugin .

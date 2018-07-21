@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/dynamicgo/orm"
+
+	"github.com/go-xorm/xorm"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
@@ -13,6 +16,7 @@ import (
 	_ "github.com/dynamicgo/mesh/libp2p"
 	"github.com/dynamicgo/mesh/service/configservice"
 	"github.com/dynamicgo/mesh/service/hub"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var hubconfigdata = []byte(`
@@ -56,7 +60,20 @@ var servicehub mesh.Agent
 
 func init() {
 	config := config.NewConfig(config.WithSource(memory.NewSource(memory.WithData(hubconfigdata))))
-	var err error
+
+	driver := config.Get("mesh", "configservice", "database", "driver").String("sqlite3")
+	source := config.Get("mesh", "configservice", "database", "source").String(".test/configservice.db")
+
+	db, err := xorm.NewEngine(driver, source)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err := orm.Sync(db); err != nil {
+		panic(err)
+	}
+
 	servicehub, err = New(config)
 
 	if err != nil {
@@ -69,7 +86,14 @@ func init() {
 		panic(err)
 	}
 
-	go service.Run(hub.Main, mesh.NoRemoteConfig())
+	go func() {
+		err := service.Run(hub.Main, mesh.NoRemoteConfig())
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// go service.Run(hub.Main, mesh.NoRemoteConfig())
 
 	service, err = servicehub.RegisterService(mesh.ConfigService)
 
@@ -77,12 +101,21 @@ func init() {
 		panic(err)
 	}
 
-	go service.Run(configservice.Main, mesh.NoRemoteConfig())
+	go func() {
+		err := service.Run(configservice.Main, mesh.NoRemoteConfig())
+
+		if err != nil {
+			// println(err)
+			panic(err)
+		}
+	}()
 }
 
 func init() {
 
 	configdata := []byte(fmt.Sprintf(clientconfigdata, servicehub.Network().ID(), servicehub.Network().ID()))
+
+	// configdata := []byte(fmt.Sprintf(clientconfigdata, "", ""))
 
 	config := config.NewConfig(config.WithSource(memory.NewSource(memory.WithData(configdata))))
 
