@@ -27,6 +27,10 @@ type repositoryImpl struct {
 // Open open repository by disk path
 func Open(rootpath string) (Repository, error) {
 
+	logger := slf4go.Get("libp2p-repo")
+
+	logger.DebugF("init with root path %s", rootpath)
+
 	fullpath, err := filepath.Abs(rootpath)
 
 	if err != nil {
@@ -34,7 +38,7 @@ func Open(rootpath string) (Repository, error) {
 	}
 
 	return &repositoryImpl{
-		Logger:   slf4go.Get("repo"),
+		Logger:   logger,
 		rootpath: fullpath,
 	}, nil
 }

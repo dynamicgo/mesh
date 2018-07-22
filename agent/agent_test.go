@@ -40,11 +40,6 @@ var clientconfigdata = `
 				"/ip4/127.0.0.1/tcp/7000/mesh/%s"
 			]
 		},
-		"config":{
-			"peers":[
-				"/ip4/127.0.0.1/tcp/7000/mesh/%s"
-			]
-		},
 		"libp2p":{
 			"laddr":[
 				"/ip4/0.0.0.0/tcp/8000"
@@ -55,8 +50,27 @@ var clientconfigdata = `
 }
 `
 
+var cdata = `
+{
+	"mesh":{
+		"hub":{
+			"peers":[
+				"/ip4/127.0.0.1/tcp/7000/mesh/%s"
+			]
+		},
+		"libp2p":{
+			"laddr":[
+				"/ip4/0.0.0.0/tcp/9000"
+			],
+			"repo":".test/cs"
+		}
+	}
+}
+`
+
 var node mesh.Agent
 var servicehub mesh.Agent
+var configService mesh.Agent
 
 func init() {
 	config := config.NewConfig(config.WithSource(memory.NewSource(memory.WithData(hubconfigdata))))
@@ -94,8 +108,21 @@ func init() {
 	}()
 
 	// go service.Run(hub.Main, mesh.NoRemoteConfig())
+}
 
-	service, err = servicehub.RegisterService(mesh.ConfigService)
+func init() {
+	configdata := []byte(fmt.Sprintf(cdata, servicehub.Network().ID()))
+
+	config := config.NewConfig(config.WithSource(memory.NewSource(memory.WithData(configdata))))
+
+	var err error
+	configService, err = New(config)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	service, err := configService.RegisterService(mesh.ConfigService)
 
 	if err != nil {
 		panic(err)
@@ -113,7 +140,7 @@ func init() {
 
 func init() {
 
-	configdata := []byte(fmt.Sprintf(clientconfigdata, servicehub.Network().ID(), servicehub.Network().ID()))
+	configdata := []byte(fmt.Sprintf(clientconfigdata, servicehub.Network().ID()))
 
 	// configdata := []byte(fmt.Sprintf(clientconfigdata, "", ""))
 

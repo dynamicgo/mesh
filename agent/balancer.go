@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dynamicgo/slf4go"
+
 	"github.com/dynamicgo/mesh"
 	"github.com/dynamicgo/mesh/proto"
 )
 
 type serviceBalancer struct {
 	sync.Mutex
+	slf4go.Logger
 	serviceHub proto.ServiceHubClient
 	network    mesh.Network
 	peers      []*mesh.Peer
@@ -22,6 +25,7 @@ type serviceBalancer struct {
 
 func (agent *agentImpl) newServiceBalancer(serviceName string) *serviceBalancer {
 	return &serviceBalancer{
+		Logger:     agent.Logger,
 		serviceHub: agent.serviceHub,
 		network:    agent.network,
 		ctx:        agent.ctx,
@@ -58,20 +62,20 @@ func (balancer *serviceBalancer) selectOne() (*mesh.Peer, bool) {
 		return nil, false
 	}
 
-	peers := balancer.peers[balancer.indexer]
-
-	balancer.indexer++
-
 	if balancer.indexer >= len(balancer.peers) {
 		return nil, false
 	}
+
+	peers := balancer.peers[balancer.indexer]
+
+	balancer.indexer++
 
 	return peers, true
 }
 
 func (balancer *serviceBalancer) fetchPeers() (bool, error) {
 	if balancer.serviceHub == nil {
-		return false, fmt.Errorf("[%s] mesh.hub.peers is zero", balancer.network.ID())
+		return false, fmt.Errorf("[%s] servicehub is nil", balancer.network.ID())
 	}
 
 	response, err := balancer.serviceHub.Lookup(balancer.ctx, &proto.LockupRequest{

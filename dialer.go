@@ -69,7 +69,7 @@ func (dialer *dialerWithBalancer) Dial(ctx context.Context, serviceName string, 
 
 	dialerOption := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 
-		dialer.DebugF("[%s] try dial to %s", serviceName, addr)
+		dialer.DebugF("[%s] dialer[%s] try get next peer", dialer.network.ID(), serviceName)
 
 		peer, err := dialer.balancer.NextPeer(serviceName)
 
@@ -80,6 +80,8 @@ func (dialer *dialerWithBalancer) Dial(ctx context.Context, serviceName string, 
 		if peer == nil {
 			return nil, fmt.Errorf("can't find valid peer for service %s", serviceName)
 		}
+
+		dialer.DebugF("[%s] dialer[%s] try get next peer -- success", dialer.network.ID(), serviceName)
 
 		return dialer.network.Dial(peer, serviceName, timeout)
 	})

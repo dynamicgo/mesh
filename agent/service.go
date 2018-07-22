@@ -1,7 +1,11 @@
 package agent
 
 import (
+	"context"
 	"net"
+	"time"
+
+	"github.com/dynamicgo/slf4go"
 
 	config "github.com/dynamicgo/go-config"
 	"github.com/dynamicgo/mesh"
@@ -10,20 +14,71 @@ import (
 )
 
 type serviceImpl struct {
+	slf4go.Logger
 	server      *grpc.Server
 	listener    net.Listener
 	agent       *agentImpl
 	serviceName string
+	timeout     time.Duration
+	nodeid      string
 }
 
 // NewService .
 func (agent *agentImpl) newService(serviceName string, server *grpc.Server, listener net.Listener) mesh.Service {
 	return &serviceImpl{
+		Logger:      agent.Logger,
 		server:      server,
 		listener:    listener,
 		agent:       agent,
 		serviceName: serviceName,
+		timeout:     agent.heartbeatTimeout,
+		nodeid:      agent.network.ID(),
 	}
+}
+
+func (service *serviceImpl) runHeartBeat(ctx context.Context) {
+
+	ticker := time.NewTicker(service.timeout)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			{
+				service.InfoF("[%s] service '%s' exit", service.nodeid, service.serviceName)
+				return
+			}
+		case <-ticker.C:
+			{
+				if err := service.doHeartBeat(ctx); err != nil {
+					service.ErrorF("[%s] service '%s' send heartbeat err %s", service.nodeid, service.serviceName, err)
+				}
+			}
+		}
+	}
+
+}
+
+func (service *serviceImpl) doHeartBeat(ctx context.Context) error {
+	agent := service.agent
+
+	if agent.serviceHub == nil {
+		agent.WarnF("[%s] skip register service to service hub", agent.network.ID())
+	} else {
+		agent.DebugF("[%s] register service to service hub", agent.network.ID())
+		_, err := agent.serviceHub.Register(ctx, &proto.RegisterRequest{
+			Name:  service.serviceName,
+			Addrs: agent.network.Addrs(),
+		})
+
+		if err != nil {
+			return err
+		}
+
+		agent.DebugF("[%s] register service to service hub -- success", agent.network.ID())
+	}
+
+	return nil
 }
 
 func (service *serviceImpl) Run(main mesh.ServiceMain, options ...mesh.ServiceOption) error {
@@ -55,23 +110,15 @@ func (service *serviceImpl) Run(main mesh.ServiceMain, options ...mesh.ServiceOp
 		return err
 	}
 
-	agent := service.agent
+	ctx, cancel := context.WithCancel(service.agent.ctx)
 
-	if agent.serviceHub == nil {
-		agent.WarnF("[%s] skip register service to service hub", agent.network.ID())
-	} else {
-		agent.DebugF("[%s] register service to service hub", agent.network.ID())
-		_, err := agent.serviceHub.Register(agent.ctx, &proto.RegisterRequest{
-			Name:  service.serviceName,
-			Addrs: agent.network.Addrs(),
-		})
+	defer cancel()
 
-		if err != nil {
-			return err
-		}
-
-		agent.DebugF("[%s] register service to service hub -- success", agent.network.ID())
+	if err := service.doHeartBeat(ctx); err != nil {
+		service.ErrorF("[%s] service '%s' send heartbeat err %s", service.nodeid, service.serviceName, err)
 	}
+
+	go service.runHeartBeat(ctx)
 
 	return service.server.Serve(service.listener)
 }

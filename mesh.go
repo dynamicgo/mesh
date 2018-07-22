@@ -30,7 +30,7 @@ type Agent interface {
 	Network() Network
 	Stop() error
 	RegisterService(name string, options ...grpc.ServerOption) (Service, error)
-	FindService(name string, options ...FindOption) (*grpc.ClientConn, error)
+	FindService(name string, options ...grpc.DialOption) (*grpc.ClientConn, error)
 	// Dial(serviceName string, addrs []string, options ...grpc.DialOption) (*grpc.ClientConn, error)
 }
 

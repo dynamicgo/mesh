@@ -37,6 +37,8 @@ func new(config config.Config) (configgrpc.SourceServer, error) {
 }
 func (service *serviceImpl) Read(context context.Context, request *configgrpc.ReadRequest) (*configgrpc.ReadResponse, error) {
 
+	service.DebugF("lookup service[%s] config", request.Path)
+
 	var serviceConfig ServiceConfig
 
 	_, err := service.orm.Where(`"path" = ?`, request.Path).Get(&serviceConfig)
@@ -44,6 +46,8 @@ func (service *serviceImpl) Read(context context.Context, request *configgrpc.Re
 	if err != nil {
 		return nil, err
 	}
+
+	service.DebugF("lookup service[%s] config with content: %s", request.Path, serviceConfig.Content)
 
 	hash := md5.New()
 
