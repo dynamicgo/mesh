@@ -8,8 +8,8 @@ import (
 
 // Builtin protocols
 var (
-	ServiceHub    = "/dynamicgo/mesh/hub/1.0.0"
-	ConfigService = "/dynamicgo/mesh/config/1.0.0"
+	ProtocolServiceHub    = "/dynamicgo/mesh/hub/1.0.0"
+	ProtocolConfigService = "/dynamicgo/mesh/config/1.0.0"
 )
 
 // ServiceConfig .

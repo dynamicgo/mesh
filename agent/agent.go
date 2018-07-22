@@ -113,7 +113,7 @@ func (agent *agentImpl) connectAdmin(config config.Config) (err error) {
 		return nil
 	}
 
-	conn, err := agent.dialWithDefaultBalancer(mesh.ServiceHub, addrs)
+	conn, err := agent.dialWithDefaultBalancer(mesh.ProtocolServiceHub, addrs)
 
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (agent *agentImpl) createConfigSource(service string) (source.Source, error
 
 func (agent *agentImpl) connectConfigServer() (configgrpc.SourceClient, error) {
 
-	conn, err := agent.FindService(mesh.ConfigService)
+	conn, err := agent.FindService(mesh.ProtocolConfigService)
 
 	if err != nil {
 		return nil, err

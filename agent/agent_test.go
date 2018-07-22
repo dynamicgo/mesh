@@ -94,7 +94,7 @@ func init() {
 		panic(err.Error())
 	}
 
-	service, err := servicehub.RegisterService(mesh.ServiceHub)
+	service, err := servicehub.RegisterService(mesh.ProtocolServiceHub)
 
 	if err != nil {
 		panic(err)
@@ -122,7 +122,7 @@ func init() {
 		panic(err.Error())
 	}
 
-	service, err := configService.RegisterService(mesh.ConfigService)
+	service, err := configService.RegisterService(mesh.ProtocolConfigService)
 
 	if err != nil {
 		panic(err)
