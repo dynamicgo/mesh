@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	peer "github.com/libp2p/go-libp2p-peer"
 	multiaddr "github.com/multiformats/go-multiaddr"
 )
 
@@ -22,7 +21,7 @@ func init() {
 		Name:       "mesh",
 		VCode:      multiaddr.CodeToVarint(PINWE),
 		Path:       false,
-		Transcoder: multiaddr.TranscoderIPFS,
+		Transcoder: multiaddr.TranscoderP2P,
 	})
 }
 
@@ -33,12 +32,12 @@ var (
 
 // PeerAddr inwe peer address
 type PeerAddr struct {
-	ID   peer.ID
+	ID   string
 	Addr multiaddr.Multiaddr
 }
 
 func (addr *PeerAddr) String() string {
-	suffix, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/mesh/%s", addr.ID.Pretty()))
+	suffix, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/mesh/%s", addr.ID))
 
 	return addr.Addr.Encapsulate(suffix).String()
 }
@@ -65,14 +64,14 @@ func Parse(name string) (*PeerAddr, error) {
 	// make sure 'ipfs id' parses as a peer.ID
 	peerIDParts := strings.Split(ipfspart.String(), "/")
 	peerIDStr := peerIDParts[len(peerIDParts)-1]
-	id, err := peer.IDB58Decode(peerIDStr)
+	// id, err := peer.IDB58Decode(peerIDStr)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &PeerAddr{
-		ID:   id,
+		ID:   peerIDStr,
 		Addr: multiaddr.Join(msplit[:len(msplit)-1]...),
 	}, nil
 }

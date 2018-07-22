@@ -12,12 +12,13 @@ import (
 
 	config "github.com/dynamicgo/go-config"
 	"github.com/dynamicgo/mesh"
-	"github.com/dynamicgo/mesh/libp2p/addr"
+	"github.com/dynamicgo/mesh/addr"
 	"github.com/dynamicgo/mesh/libp2p/repo"
 	"github.com/dynamicgo/slf4go"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	multiaddr "github.com/multiformats/go-multiaddr"
@@ -160,8 +161,14 @@ func (node *meshNode) loadBootstrapPeers(config config.Config) (err error) {
 			continue
 		}
 
+		id, err := peer.IDB58Decode(peerAddr.ID)
+
+		if err != nil {
+			return err
+		}
+
 		node.bootstrapPeers = append(node.bootstrapPeers, peerstore.PeerInfo{
-			ID:    peerAddr.ID,
+			ID:    id,
 			Addrs: []multiaddr.Multiaddr{peerAddr.Addr},
 		})
 	}
@@ -177,7 +184,7 @@ func (node *meshNode) Addrs() (addrs []string) {
 		}
 
 		peerAddr := &addr.PeerAddr{
-			ID:   node.host.ID(),
+			ID:   node.host.ID().Pretty(),
 			Addr: a,
 		}
 
@@ -279,34 +286,35 @@ func (node *meshNode) Listen(serviceName string) (net.Listener, error) {
 	return listener.Listen(node.ctx, node.host, protocol.ID(serviceName)), nil
 }
 
-func (node *meshNode) Dial(raddr string, serviceName string, timeout time.Duration) (net.Conn, error) {
+func (node *meshNode) Dial(remote *mesh.Peer, serviceName string, timeout time.Duration) (net.Conn, error) {
 
 	host := node.host
 
-	peerAddr, err := addr.Parse(raddr)
+	id, err := peer.IDB58Decode(remote.ID)
 
 	if err != nil {
-		node.ErrorF("[%s] parse raddr '%s' err %s", node.name(), raddr, err)
 		return nil, err
 	}
 
-	host.Peerstore().AddAddr(peerAddr.ID, peerAddr.Addr, peerstore.PermanentAddrTTL)
+	peerInfo := peerstore.PeerInfo{
+		ID:    id,
+		Addrs: remote.Addrs,
+	}
+
+	host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, peerstore.PermanentAddrTTL)
 
 	ctx, cancel := context.WithTimeout(node.ctx, timeout)
 
 	defer cancel()
 
-	err = host.Connect(ctx, peerstore.PeerInfo{
-		ID:    peerAddr.ID,
-		Addrs: []multiaddr.Multiaddr{peerAddr.Addr},
-	})
+	err = host.Connect(ctx, peerInfo)
 
 	if err != nil {
-		node.ErrorF("[%s] ensure connect to remote peer %s err %s", node.name(), raddr, err)
+		node.ErrorF("[%s] ensure connect to remote peer %s err %s", node.name(), remote.ID, err)
 		return nil, err
 	}
 
-	stream, err := host.NewStream(ctx, peerAddr.ID, protocol.ID(serviceName))
+	stream, err := host.NewStream(ctx, peerInfo.ID, protocol.ID(serviceName))
 
 	if err != nil {
 		return nil, err

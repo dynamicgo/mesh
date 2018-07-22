@@ -4,10 +4,13 @@ import (
 	"context"
 	"strings"
 
+	"google.golang.org/grpc/codes"
+
 	config "github.com/dynamicgo/go-config"
 	"github.com/dynamicgo/mesh/proto"
 	"github.com/dynamicgo/slf4go"
 	"github.com/go-redis/redis"
+	"google.golang.org/grpc"
 )
 
 type serviceHub struct {
@@ -54,7 +57,7 @@ func (hub *serviceHub) Register(ctx context.Context, request *proto.RegisterRequ
 	err := hub.client.SAdd(request.Name, members...).Err()
 
 	if err != nil {
-		return nil, err
+		return nil, grpc.Errorf(codes.Internal, "call redis err: %s", err)
 	}
 
 	return &proto.RegisterResponse{}, nil

@@ -2,7 +2,7 @@ package mesh
 
 import (
 	"context"
-	"math/rand"
+	"fmt"
 	"net"
 	"time"
 
@@ -13,47 +13,82 @@ import (
 
 // Dialer .
 type Dialer interface {
-	Dial(ctx context.Context, options ...grpc.DialOption) (*grpc.ClientConn, error)
+	Dial(ctx context.Context, serviceName string, options ...grpc.DialOption) (*grpc.ClientConn, error)
 	Network() Network
 }
 
-type randomDialer struct {
+type dialerWithBalancer struct {
 	slf4go.Logger
-	rand        *rand.Rand
-	addrs       []string
-	network     Network
-	serviceName string
+	balancer DialerBalancer
+	network  Network
 }
 
-// NewDialer .
-func NewDialer(serviceName string, addrs []string, network Network) Dialer {
-	return &randomDialer{
-		Logger:      slf4go.Get("random dialer"),
-		addrs:       addrs,
-		network:     network,
-		rand:        rand.New(rand.NewSource(time.Now().Unix())),
-		serviceName: serviceName,
+// DialerBalancer .
+type DialerBalancer interface {
+	NextPeer(serviceName string) (*Peer, error)
+}
+
+type defaultBalancer struct {
+	peers []*Peer
+	index int
+}
+
+// DefaultBalancer .
+func DefaultBalancer(peers []*Peer) DialerBalancer {
+	return &defaultBalancer{
+		peers: peers,
 	}
 }
 
-func (dialer *randomDialer) randomSelect() string {
-	id := dialer.rand.Intn(len(dialer.addrs))
-	return dialer.addrs[id]
+func (balancer *defaultBalancer) NextPeer(serviceName string) (*Peer, error) {
+	if len(balancer.peers) == 0 {
+		return nil, nil
+	}
+
+	peers := balancer.peers[balancer.index]
+
+	balancer.index++
+
+	if balancer.index >= len(balancer.peers) {
+		balancer.index = 0
+	}
+
+	return peers, nil
 }
 
-func (dialer *randomDialer) Dial(ctx context.Context, options ...grpc.DialOption) (*grpc.ClientConn, error) {
+// NewDialer .
+func NewDialer(network Network, balancer DialerBalancer) Dialer {
+	return &dialerWithBalancer{
+		Logger:   slf4go.Get("random dialer"),
+		network:  network,
+		balancer: balancer,
+	}
+}
+
+func (dialer *dialerWithBalancer) Dial(ctx context.Context, serviceName string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
 
 	dialerOption := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-		addr = dialer.randomSelect()
-		dialer.DebugF("[%s] try dial to %s", dialer.serviceName, addr)
-		return dialer.network.Dial(addr, dialer.serviceName, timeout)
+
+		dialer.DebugF("[%s] try dial to %s", serviceName, addr)
+
+		peer, err := dialer.balancer.NextPeer(serviceName)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if peer == nil {
+			return nil, fmt.Errorf("can't find valid peer for service %s", serviceName)
+		}
+
+		return dialer.network.Dial(peer, serviceName, timeout)
 	})
 
 	options = append(options, dialerOption)
 
-	return grpc.DialContext(ctx, dialer.randomSelect(), options...)
+	return grpc.DialContext(ctx, serviceName, options...)
 }
 
-func (dialer *randomDialer) Network() Network {
+func (dialer *dialerWithBalancer) Network() Network {
 	return dialer.network
 }

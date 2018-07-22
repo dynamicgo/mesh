@@ -31,14 +31,14 @@ type Agent interface {
 	Stop() error
 	RegisterService(name string, options ...grpc.ServerOption) (Service, error)
 	FindService(name string, options ...FindOption) (*grpc.ClientConn, error)
-	Dial(serviceName string, addrs []string, options ...grpc.DialOption) (*grpc.ClientConn, error)
+	// Dial(serviceName string, addrs []string, options ...grpc.DialOption) (*grpc.ClientConn, error)
 }
 
 // Network .
 type Network interface {
 	Stop() error
-	Listen(laddr string) (net.Listener, error)
-	Dial(raddr string, serviceName string, timeout time.Duration) (net.Conn, error)
+	Listen(serviceName string) (net.Listener, error)
+	Dial(peer *Peer, serviceName string, timeout time.Duration) (net.Conn, error)
 	ID() string
 	Addrs() []string
 }

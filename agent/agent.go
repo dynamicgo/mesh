@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	config "github.com/dynamicgo/go-config"
@@ -16,12 +17,15 @@ import (
 )
 
 type agentImpl struct {
+	sync.Mutex
 	slf4go.Logger
-	network        mesh.Network
-	serviceHub     proto.ServiceHubClient
-	ctx            context.Context
-	cancel         context.CancelFunc
-	configservices []string
+	network          mesh.Network
+	serviceHub       proto.ServiceHubClient
+	ctx              context.Context
+	cancel           context.CancelFunc
+	configservices   []string
+	dialer           mesh.Dialer
+	serviceBalancers map[string]*serviceBalancer
 }
 
 // New create new mesh node with config
@@ -36,14 +40,16 @@ func New(config config.Config) (mesh.Agent, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	agent := &agentImpl{
-		Logger: slf4go.Get("micro-agent"),
-		ctx:    ctx,
-		cancel: cancel,
+		Logger:           slf4go.Get("micro-agent"),
+		ctx:              ctx,
+		cancel:           cancel,
+		serviceBalancers: make(map[string]*serviceBalancer),
 	}
 
 	network, err := plugin(ctx, config)
 
 	agent.network = network
+	agent.dialer = mesh.NewDialer(network, agent)
 
 	if err := agent.connectAdmin(config); err != nil {
 		return nil, err
@@ -63,6 +69,20 @@ func (agent *agentImpl) Stop() error {
 
 func (agent *agentImpl) Network() mesh.Network {
 	return agent.network
+}
+
+func (agent *agentImpl) NextPeer(serviceName string) (*mesh.Peer, error) {
+	agent.Lock()
+	balancer, ok := agent.serviceBalancers[serviceName]
+
+	if !ok {
+		balancer = agent.newServiceBalancer(serviceName)
+		agent.serviceBalancers[serviceName] = balancer
+	}
+
+	agent.Unlock()
+
+	return balancer.NextPeer()
 }
 
 func (agent *agentImpl) RegisterService(name string, options ...grpc.ServerOption) (mesh.Service, error) {
@@ -93,7 +113,7 @@ func (agent *agentImpl) connectAdmin(config config.Config) (err error) {
 		return nil
 	}
 
-	conn, err := agent.Dial(mesh.ServiceHub, addrs)
+	conn, err := agent.dialWithDefaultBalancer(mesh.ServiceHub, addrs)
 
 	if err != nil {
 		return err
@@ -111,7 +131,7 @@ func (agent *agentImpl) createConfigSource(service string) (source.Source, error
 
 	agent.DebugF("[%s] grpc config source dial to %s", agent.network.ID(), strings.Join(agent.configservices, ","))
 
-	conn, err := agent.Dial(mesh.ConfigService, agent.configservices)
+	conn, err := agent.dialWithDefaultBalancer(mesh.ConfigService, agent.configservices)
 
 	if err != nil {
 		return nil, err
@@ -139,9 +159,15 @@ func (agent *agentImpl) connectConfigServer(config config.Config) (err error) {
 	return
 }
 
-func (agent *agentImpl) Dial(serviceName string, addrs []string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (agent *agentImpl) dialWithDefaultBalancer(serviceName string, addrs []string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
 
-	dialer := mesh.NewDialer(serviceName, addrs, agent.network)
+	peers, err := mesh.AddrsToPeers(addrs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dialer := mesh.NewDialer(agent.network, mesh.DefaultBalancer(peers))
 
 	timeout := config.Get("mesh", "connect", "timeout").Duration(time.Second * 10)
 
@@ -149,22 +175,9 @@ func (agent *agentImpl) Dial(serviceName string, addrs []string, options ...grpc
 	options = append(options, grpc.WithBlock())
 	options = append(options, grpc.WithTimeout(timeout))
 
-	return dialer.Dial(agent.ctx, options...)
+	return dialer.Dial(agent.ctx, serviceName, options...)
 }
 
 func (agent *agentImpl) FindService(name string, options ...mesh.FindOption) (*grpc.ClientConn, error) {
-
-	if agent.serviceHub == nil {
-		return nil, fmt.Errorf("[%s] mesh.hub.peers is zero", agent.network.ID())
-	}
-
-	route, err := agent.serviceHub.Lookup(agent.ctx, &proto.LockupRequest{
-		Name: name,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return agent.Dial(name, route.Addrs)
+	return agent.dialer.Dial(agent.ctx, name)
 }
