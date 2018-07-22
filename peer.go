@@ -40,7 +40,11 @@ type Peer struct {
 func (peer *Peer) MeshAddrs() (addrs []string) {
 
 	for _, addr := range peer.Addrs {
-		suffix, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/mesh/%s", peer.ID))
+		suffix, err := multiaddr.NewMultiaddr(fmt.Sprintf("/mesh/%s", peer.ID))
+
+		if err != nil {
+			println("========", err.Error())
+		}
 
 		addrs = append(addrs, addr.Encapsulate(suffix).String())
 	}
@@ -83,6 +87,7 @@ func MergePeers(peers []*Peer) []*Peer {
 		peer, ok := peersMap[p.ID]
 
 		if !ok {
+			peer = p
 			peersMap[p.ID] = p
 		}
 

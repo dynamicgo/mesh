@@ -66,9 +66,10 @@ func (service *serviceImpl) doHeartBeat(ctx context.Context) error {
 		agent.WarnF("[%s] skip register service to service hub", agent.network.ID())
 	} else {
 		agent.DebugF("[%s] register service to service hub", agent.network.ID())
+
 		_, err := agent.serviceHub.Register(ctx, &proto.RegisterRequest{
 			Name:  service.serviceName,
-			Addrs: agent.network.Addrs(),
+			Addrs: agent.network.Peer().MeshAddrs(),
 		})
 
 		if err != nil {
