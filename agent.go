@@ -12,11 +12,6 @@ var (
 	ErrNetworkClosed   = errors.New("underground network closed")
 )
 
-// Admin .
-type Admin interface {
-	Stop() error
-}
-
 // Agent microsrevice mesh agent node
 type Agent interface {
 	Network() Network
