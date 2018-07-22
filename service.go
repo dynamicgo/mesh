@@ -12,7 +12,7 @@ var (
 )
 
 // ServiceMain service main entry
-type ServiceMain func(server *grpc.Server, config config.Config) error
+type ServiceMain func(agent Agent, server *grpc.Server, config config.Config) error
 
 // Service .
 type Service interface {

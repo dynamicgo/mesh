@@ -159,7 +159,7 @@ func TestRegisterService(t *testing.T) {
 
 	require.NoError(t, err)
 
-	err = service.Run(func(*grpc.Server, config.Config) error {
+	err = service.Run(func(mesh.Agent, *grpc.Server, config.Config) error {
 		return nil
 	})
 

@@ -106,7 +106,7 @@ func (service *serviceImpl) Run(main mesh.ServiceMain, options ...mesh.ServiceOp
 		return err
 	}
 
-	if err := main(service.server, config); err != nil {
+	if err := main(service.agent, service.server, config); err != nil {
 		return err
 	}
 
