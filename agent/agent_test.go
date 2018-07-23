@@ -13,9 +13,9 @@ import (
 	config "github.com/dynamicgo/go-config"
 	"github.com/dynamicgo/go-config/source/memory"
 	"github.com/dynamicgo/mesh"
+	"github.com/dynamicgo/mesh-configservice"
 	_ "github.com/dynamicgo/mesh-libp2p-network"
-	"github.com/dynamicgo/mesh/service/configservice"
-	"github.com/dynamicgo/mesh/service/hub"
+	hub "github.com/dynamicgo/mesh-servicehub"
 	_ "github.com/mattn/go-sqlite3"
 )
 
